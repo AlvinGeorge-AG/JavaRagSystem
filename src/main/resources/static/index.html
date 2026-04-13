@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #050505; color: #e5e7eb; }
+        .glass { background: rgba(20, 20, 25, 0.7); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .chat-bubble { max-width: 80%; padding: 12px 18px; border-radius: 18px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col font-sans">
+
+<header class="p-5 glass flex justify-between items-center sticky top-0 z-10">
+    <h1 class="text-2xl font-black tracking-tighter text-white">JAVA <span class="text-blue-500">RAG</span> ENGINE</h1>
+    <input type="file" id="fileInput" class="hidden" onchange="uploadFile(this)">
+    <button onclick="document.getElementById('fileInput').click()" class="bg-white/10 hover:bg-white/20 px-5 py-2 rounded-full border border-white/20 transition">Upload Doc</button>
+</header>
+
+<div id="chatBox" class="flex-1 overflow-y-auto p-8 space-y-6"></div>
+
+<footer class="p-6">
+    <input id="userInput" type="text" placeholder="Type your message..."
+           class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+</footer>
+
+<script>
+    const sessionId = Math.random().toString(36).substring(7);
+
+    // Enter key listener
+    document.getElementById('userInput').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+
+    async function uploadFile(input) {
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+        await fetch('/api/upload', { method: 'POST', body: formData });
+        alert("Indexed!");
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('userInput');
+        const chatBox = document.getElementById('chatBox');
+        if(!input.value) return;
+
+        // Add user message
+        chatBox.innerHTML += `<div class="flex justify-end"><div class="chat-bubble bg-blue-600">${input.value}</div></div>`;
+        const userMsg = input.value;
+        input.value = ''; // Clear input
+
+        // Add empty AI bubble for streaming
+        chatBox.innerHTML += `<div class="flex justify-start"><div id="ai-response" class="chat-bubble glass"></div></div>`;
+        const aiBubble = document.getElementById('ai-response');
+
+        // Streaming Logic
+        const response = await fetch(`/api/chat/${sessionId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: userMsg
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            aiBubble.innerText += decoder.decode(value);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        aiBubble.removeAttribute('id');
+    }
+</script>
+</body>
+</html>

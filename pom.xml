@@ -28,10 +28,9 @@
             <version>0.35.0</version>
         </dependency>
 
-        <!-- 2. Google Gemini Provider -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-google-ai-gemini</artifactId>
+            <artifactId>langchain4j-open-ai</artifactId>
             <version>0.35.0</version>
         </dependency>
 
@@ -39,13 +38,6 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-pinecone</artifactId>
-            <version>0.35.0</version>
-        </dependency>
-
-        <!-- 4. PDF Document Parser -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-document-parser-apache-pdfbox</artifactId>
             <version>0.35.0</version>
         </dependency>
 
@@ -63,6 +55,18 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-document-parser-apache-tika</artifactId>
+            <version>0.35.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-cohere</artifactId>
             <version>0.35.0</version>
         </dependency>
 

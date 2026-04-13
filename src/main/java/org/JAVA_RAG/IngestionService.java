@@ -3,8 +3,8 @@ package org.JAVA_RAG;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.loader.FileSystemDocumentLoader;
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
+import dev.langchain4j.model.cohere.CohereEmbeddingModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 import dev.langchain4j.store.embedding.pinecone.PineconeEmbeddingStore;
 import dev.langchain4j.data.document.parser.apache.tika.ApacheTikaDocumentParser;
@@ -16,9 +16,10 @@ import java.nio.file.Path;
 public class IngestionService {
 
     private final String pineconeKey;
-
-    public IngestionService(@Value("${pinecone_api_key}") String pineconeKey) {
+    private final String hfApiKey;
+    public IngestionService(@Value("${pinecone_api_key}") String pineconeKey,@Value("${java-rag-app}") String hfApiKey) {
         this.pineconeKey = pineconeKey;
+        this.hfApiKey = hfApiKey;
     }
 
     public void ingestFile(String filePath) {
@@ -29,7 +30,11 @@ public class IngestionService {
         );
 
         // 2. Local Embedding
-        EmbeddingModel embeddingModel = new AllMiniLmL6V2EmbeddingModel();
+        EmbeddingModel embeddingModel = CohereEmbeddingModel.builder()
+                .apiKey(hfApiKey)
+                .modelName("embed-english-v3.0") // The gold standard for RAG
+                .inputType("search_document")
+                .build();
 
         // 3. Setup Pinecone (our permanent database)
         var embeddingStore = PineconeEmbeddingStore.builder()

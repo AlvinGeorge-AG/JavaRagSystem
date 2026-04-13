@@ -3,10 +3,9 @@ package org.JAVA_RAG;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.cohere.CohereEmbeddingModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
-import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
-import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.UserMessage;
@@ -14,9 +13,9 @@ import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.store.embedding.pinecone.PineconeEmbeddingStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -31,10 +30,14 @@ public class RetrievalService {
     private final Assistant assistant;
     private final Map<Object, ChatMemory> chatMemories = new ConcurrentHashMap<>();
 
-    public RetrievalService(@Value("${gemini_api_key}") String gemini_api_key,@Value("${pinecone_api_key}") String pineconeKey) {
+    public RetrievalService(@Value("${groq_api_key}") String groq_api_key,@Value("${pinecone_api_key}") String pineconeKey,@Value("${java-rag-app}") String hfApiKey) {
 
         // 1. Embedding Model
-        EmbeddingModel embeddingModel = new AllMiniLmL6V2EmbeddingModel();
+        EmbeddingModel embeddingModel = CohereEmbeddingModel.builder()
+                .apiKey(hfApiKey)
+                .modelName("embed-english-v3.0") // The gold standard for RAG
+                .inputType("search_query")
+                .build();
 
         // 2. Connect to the same Pinecone index
         var embeddingStore = PineconeEmbeddingStore.builder()
@@ -51,9 +54,13 @@ public class RetrievalService {
                 .build();
 
         // 4. Connect to Gemini for the final answer
-        ChatLanguageModel chatModel = GoogleAiGeminiChatModel.builder()
-                .apiKey(gemini_api_key)
-                .modelName("gemini-2.5-flash-lite")
+        ChatLanguageModel chatModel = OpenAiChatModel.builder()
+                .apiKey(groq_api_key) // Use your Groq API Key here
+                .baseUrl("https://api.groq.com/openai/v1") // <--- THIS REDIRECTS TO GROQ
+                .modelName("llama-3.3-70b-versatile") // Groq's fastest model
+                .timeout(Duration.ofSeconds(60))
+                .logRequests(true)
+                .logResponses(true)
                 .build();
 
         // 5. Create the "Assistant" (The glue that holds everything together)

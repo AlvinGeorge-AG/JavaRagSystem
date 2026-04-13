@@ -30,12 +30,15 @@ public class RetrievalService {
     private final Assistant assistant;
     private final Map<Object, ChatMemory> chatMemories = new ConcurrentHashMap<>();
 
-    public RetrievalService(@Value("${groq_api_key}") String groq_api_key,@Value("${pinecone_api_key}") String pineconeKey,@Value("${java-rag-app}") String hfApiKey) {
+    public RetrievalService(@Value("${groq_api_key}") String groq_api_key,@Value("${pinecone_api_key}") String pineconeKey,@Value("${cohere_api_key}") String cohereKey) {
 
         // 1. Embedding Model
+        System.out.println("--- STARTING RAG ENGINE ---");
+        System.out.println("COHERE KEY: " + cohereKey.substring(0, 5) + "...");
+
         EmbeddingModel embeddingModel = CohereEmbeddingModel.builder()
-                .apiKey(hfApiKey)
-                .modelName("embed-english-v3.0") // The gold standard for RAG
+                .apiKey(cohereKey)
+                .modelName("embed-english-v3.0") // Keep it at 3.0 for V1 API compatibility
                 .inputType("search_query")
                 .build();
 

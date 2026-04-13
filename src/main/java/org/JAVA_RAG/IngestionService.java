@@ -17,86 +17,82 @@ import dev.langchain4j.data.document.parser.apache.tika.ApacheTikaDocumentParser
 import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 
-
-
 @Service
 public class IngestionService {
 
+        public void ingestMultipartFile(MultipartFile multipartFile) throws Exception {
+                // 1. Get the stream and filename
+                try (InputStream inputStream = multipartFile.getInputStream()) {
+                        String fileName = multipartFile.getOriginalFilename();
 
-    public void ingestMultipartFile(MultipartFile multipartFile) throws Exception {
-        // 1. Get the stream and filename
-        try (InputStream inputStream = multipartFile.getInputStream()) {
-            String fileName = multipartFile.getOriginalFilename();
+                        // 2. Use Tika to parse the stream directly (No saving to disk!)
+                        ApacheTikaDocumentParser parser = new ApacheTikaDocumentParser();
+                        Document document = parser.parse(inputStream);
 
-            // 2. Use Tika to parse the stream directly (No saving to disk!)
-            ApacheTikaDocumentParser parser = new ApacheTikaDocumentParser();
-            Document document = parser.parse(inputStream);
+                        // 3. Add metadata so we know which file this belongs to
+                        document.metadata().add("file_name", fileName);
 
-            // 3. Add metadata so we know which file this belongs to
-            document.metadata().add("file_name", fileName);
+                        // 4. Setup Ingestor (Exactly the same as before)
+                        var embeddingModel = CohereEmbeddingModel.builder()
+                                        .apiKey(cohere_api_key)
+                                        .modelName("embed-v4.0")
+                                        .inputType("search_document")
+                                        .build();
 
-            // 4. Setup Ingestor (Exactly the same as before)
-            var embeddingModel = CohereEmbeddingModel.builder()
-                    .apiKey(hfApiKey)
-                    .modelName("embed-english-v3.0")
-                    .inputType("search_document")
-                    .build();
+                        var embeddingStore = PineconeEmbeddingStore.builder()
+                                        .apiKey(pineconeKey)
+                                        .index("rag-index")
+                                        .build();
 
-            var embeddingStore = PineconeEmbeddingStore.builder()
-                    .apiKey(pineconeKey)
-                    .index("rag-index")
-                    .build();
+                        var ingestor = EmbeddingStoreIngestor.builder()
+                                        .documentSplitter(DocumentSplitters.recursive(500, 100))
+                                        .embeddingModel(embeddingModel)
+                                        .embeddingStore(embeddingStore)
+                                        .build();
 
-            var ingestor = EmbeddingStoreIngestor.builder()
-                    .documentSplitter(DocumentSplitters.recursive(500, 100))
-                    .embeddingModel(embeddingModel)
-                    .embeddingStore(embeddingStore)
-                    .build();
-
-            // 5. Ingest the in-memory document
-            ingestor.ingest(document);
+                        // 5. Ingest the in-memory document
+                        ingestor.ingest(document);
+                }
         }
-    }
 
+        private final String pineconeKey;
+        private final String cohere_api_key;
 
+        public IngestionService(@Value("${pinecone_api_key}") String pineconeKey,
+                        @Value("${cohere_api_key}") String cohere_api_key) {
+                this.pineconeKey = pineconeKey;
+                this.cohere_api_key = cohere_api_key;
+        }
 
-    private final String pineconeKey;
-    private final String hfApiKey;
-    public IngestionService(@Value("${pinecone_api_key}") String pineconeKey,@Value("${java-rag-app}") String hfApiKey) {
-        this.pineconeKey = pineconeKey;
-        this.hfApiKey = hfApiKey;
-    }
+        public void ingestFile(String filePath) {
+                // 1. Load the document
+                Document document = FileSystemDocumentLoader.loadDocument(
+                                Path.of(filePath),
+                                new ApacheTikaDocumentParser());
 
-    public void ingestFile(String filePath) {
-        // 1. Load the document
-        Document document = FileSystemDocumentLoader.loadDocument(
-                Path.of(filePath),
-                new ApacheTikaDocumentParser()
-        );
+                // 2. Local Embedding
+                EmbeddingModel embeddingModel = CohereEmbeddingModel.builder()
+                                .apiKey(cohere_api_key)
+                                .modelName("embed-v4.0") // The gold standard for RAG
+                                .inputType("search_document")
+                                .build();
 
-        // 2. Local Embedding
-        EmbeddingModel embeddingModel = CohereEmbeddingModel.builder()
-                .apiKey(hfApiKey)
-                .modelName("embed-english-v3.0") // The gold standard for RAG
-                .inputType("search_document")
-                .build();
+                // 3. Setup Pinecone (our permanent database)
+                var embeddingStore = PineconeEmbeddingStore.builder()
+                                .apiKey(pineconeKey)
+                                .environment("us-east-1") // e.g., "us-east-1"
+                                .index("rag-index")
+                                .build();
 
-        // 3. Setup Pinecone (our permanent database)
-        var embeddingStore = PineconeEmbeddingStore.builder()
-                .apiKey(pineconeKey)
-                .environment("us-east-1") // e.g., "us-east-1"
-                .index("rag-index")
-                .build();
+                // 4. Create the Ingestor (The "Machine" that chunks and saves)
+                var ingestor = EmbeddingStoreIngestor.builder()
+                                .documentSplitter(DocumentSplitters.recursive(500, 100)) // 500 chars, 100 overlap
+                                .embeddingModel(embeddingModel)
+                                .embeddingStore(embeddingStore)
+                                .build();
 
-        // 4. Create the Ingestor (The "Machine" that chunks and saves)
-        var ingestor = EmbeddingStoreIngestor.builder()
-                .documentSplitter(DocumentSplitters.recursive(500, 100)) // 500 chars, 100 overlap
-                .embeddingModel(embeddingModel)
-                .embeddingStore(embeddingStore)
-                .build();
-
-        // 5. Run it!
-        ingestor.ingest(document);
-        System.out.println("Ingestion complete! Your data is now in Pinecone.");
-    }
+                // 5. Run it!
+                ingestor.ingest(document);
+                System.out.println("Ingestion complete! Your data is now in Pinecone.");
+        }
 }

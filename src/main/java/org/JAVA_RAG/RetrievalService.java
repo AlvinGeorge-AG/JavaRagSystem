@@ -40,12 +40,12 @@ public class RetrievalService {
                 .apiKey(cohereKey)
                 .modelName("embed-english-v3.0") // Keep it at 3.0 for V1 API compatibility
                 .inputType("search_query")
+                .timeout(Duration.ofSeconds(60))
                 .build();
 
         // 2. Connect to the same Pinecone index
         var embeddingStore = PineconeEmbeddingStore.builder()
                 .apiKey(pineconeKey)
-                .environment("us-east-1")
                 .index("rag-index")
                 .build();
 

@@ -20,6 +20,7 @@ public class UploadController {
             ingestionService.ingestMultipartFile(file);
             return "File " + file.getOriginalFilename() + " indexed successfully!";
         } catch (Exception e) {
+            e.printStackTrace();
             return "Security Error: " + e.getMessage();
         }
     }
